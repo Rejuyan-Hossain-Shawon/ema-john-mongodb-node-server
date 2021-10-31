@@ -22,10 +22,7 @@ async function run() {
         const database = client.db("online_Shop");
         const productsCollection = database.collection('products');
         const orderCollection = database.collection('orders');
-        // get api home page 
-        app, get("/", async (req, res) => {
-            res.send("ema john server is running")
-        })
+
 
         // api get all products 
         app.get("/products", async (req, res) => {
