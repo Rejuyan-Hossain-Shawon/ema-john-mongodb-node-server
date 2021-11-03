@@ -1,9 +1,22 @@
 const express = require("express");
 const { MongoClient } = require('mongodb');
 const cors = require("cors");
+
+var admin = require("firebase-admin");
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
+
+
+
+// firebase connection setup for verify token id
+
+
+var serviceAccount = require("./ema-john-simple-6d302-firebase-adminsdk-nsp35-566ab2d7ee.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
 
 
 // middleware
@@ -13,6 +26,23 @@ app.use(express.json())
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7niub.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
+
+async function verifyToken(req, res, next) {
+    if (req.headers?.authorization?.startsWith('Bearer ')) {
+        const idToken = req.headers.authorization.split('Bearer ')[1];
+        try {
+            const decodedUser = await admin.auth().verifyIdToken(idToken);
+            req.decodedUserEmail = decodedUser.email;
+
+        }
+        catch {
+
+        }
+
+    }
+    next();
+}
 
 // database connection 
 
@@ -70,15 +100,22 @@ async function run() {
             res.json(result);
         })
         // orders get method to get all my orders
-        app.get("/orders", async (req, res) => {
+        app.get("/orders", verifyToken, async (req, res) => {
+
             const email = req.query.email;
-            let query = {};
-            if (email) {
-                query = { email: email }
+
+            if (req.decodedUserEmail === email) {
+                const query = { email: email };
+                const cursor = orderCollection.find(query);
+                const result = await cursor.toArray();
+                res.json(result);
             }
-            const cursor = orderCollection.find(query);
-            const result = await cursor.toArray();
-            res.json(result);
+            else {
+                res.status(401).json({ message: "User not authorized" });
+            }
+
+
+
         })
 
 
